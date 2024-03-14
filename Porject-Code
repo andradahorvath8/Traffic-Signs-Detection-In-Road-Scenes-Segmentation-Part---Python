@@ -1,0 +1,279 @@
+# Import Module
+from tkinter import *
+from PIL import Image, ImageTk
+import customtkinter as ctk
+#import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+from matplotlib.figure import Figure 
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk) 
+from tkinter import filedialog
+from tkinter.filedialog import askopenfile
+import mahotas
+from pylab import imshow, show
+import cv2 as cv
+from scipy import fft
+import pathlib
+import os
+
+
+# Instruction Texts
+TextInstruct = "Here are some instructions regarding the usage \n of the interface"
+TextInstruct_1 = "1) Please import a picture"
+TextInstruct_3 = "2) Choose if it is a day or night picture\nby pressing the buttons DAY/NIGHT IMAGE"
+
+class Extra(tk.Toplevel):
+	def __init__(self):
+		super().__init__()
+		self.title('READ ME')
+		self.geometry('700x400')
+		ttk.Label(self, text = TextInstruct, font = ("Helvetica bold", 20)).pack()
+		ttk.Label(self, text = TextInstruct_1, font = ("Helvetica bold", 20)).pack()
+		ttk.Label(self, text = TextInstruct_3, font = ("Helvetica bold", 20)).pack()
+        
+def create_window():
+	global extra_window
+	extra_window = Extra()
+    
+# Create Tkinter Object
+gui = Tk()
+# Setting the window size
+gui.geometry("2000x1000")
+gui.configure(bg='white')
+ 
+# Read the Image
+image = Image.open("str.jpg")
+ 
+# Resize the image using resize() method
+resize_image = image.resize((1850, 1020))
+ 
+img = ImageTk.PhotoImage(resize_image)
+ 
+# create label and add resize image
+backgImage = Label(image=img)
+backgImage.image = img
+
+textTitle = "Traffic Sign Detection in Road Scenes"
+Title = tk.Label(gui, text = textTitle, 
+                 font = ("Helvetica bold", 40, "bold italic"), 
+                 bg="#66FFFF")
+
+ReadMe = "Firstly, please click the button: "
+ReadMeText = tk.Label(gui, text = ReadMe, 
+                 font = ("Helvetica bold", 20), 
+                 bg="#66FFFF")
+
+ButtonReadMe = ctk.CTkButton(gui, text = 'READ ME', 
+                         font = ("Helvetica bold", 17),
+                         command = create_window,
+                         bg_color = '#66FFFF', 
+                         text_color = '#000',
+                         border_color = '#66FFFF')
+
+Subject = """Please import one image from the file:"""
+Text = tk.Label(gui, text = Subject, 
+                 font = ("Helvetica bold", 20), 
+                 bg="#66FFFF")
+
+buttonImport = ctk.CTkButton(gui, text='UPLOAD PHOTO', 
+                        font = ("Helvetica bold", 17),command = lambda:upload_file(),
+                        bg_color = '#66FFFF', 
+                        text_color = '#000',
+                        border_color = '#66FFFF')
+
+
+
+   
+#creating a container for the uploaded image
+container="new.jpg"
+nr=0
+
+#the function for importing the image on the interface
+def upload_file(): 
+    f_types = [('Jpg Files', '*.jpg'),
+    ('PNG Files','*.png')]   # type of files to select 
+    filename = tk.filedialog.askopenfilename(multiple=True,filetypes=f_types)
+    col=1
+    row=3 
+    for f in filename:
+        global nr
+        img=Image.open(f) # read the image file
+        global container
+        container = os.path.basename(f) #making global this choice for using 
+                                        #the picture in the processing functions
+        print(str(container))
+        img=img.resize((400, 400)) # resizing the image in a desired dimension
+        img=ImageTk.PhotoImage(img)
+        e1 =tk.Label(gui)
+        e1.place(x=200, rely=0.35)
+        e1.image = img # keep a reference! by attaching it to a widget attribute
+        e1['image']=img # Show Image
+        if(col==3): # start new line after third column
+            row=row+1# start wtih next row
+            col=1    # start with first column
+        else:       # within the same row 
+            col=col+1 # increase to next column
+        # loading image (mahotas used for finding the mean value of the image)
+        img = mahotas.imread(container)
+
+        print("Image with filter")
+        # showing the image
+        imshow(img)
+        show()
+          
+        # getting mean value 
+        mean = img.mean()
+        nr=mean #making global this value for using in the other functions
+          
+        # printing mean value
+        print("Mean Value for 0 channel : " + str(mean))
+
+
+#the function for the day image
+def day_img():
+    #Red-angle plane
+    #opening the day image
+    InputIm_FileName_1 = container
+    InImgColor = cv.imread(InputIm_FileName_1)
+    InImgGray = cv.imread(InputIm_FileName_1, 0)
+    InImgColor
+    InImgGray
+    InImgRGB = cv.cvtColor(InImgColor, cv.COLOR_BGR2RGB)
+
+    #red-angle image formula
+    red=np.divide(InImgRGB[:,:,0].astype(int),np.sqrt(np.multiply(InImgRGB[:,:,0].astype(int),InImgRGB[:,:,0]).astype(int)+np.multiply(InImgRGB[:,:,1].astype(int),InImgRGB[:,:,1].astype(int))+np.multiply(InImgRGB[:,:,2].astype(int),InImgRGB[:,:,2].astype(int))))
+
+    red_mul=(red*255).astype(np.uint8)
+
+    print(red_mul)
+
+    #showing the red-angle space of the image
+    red_plane=cv.cvtColor(red_mul, cv.COLOR_BGR2RGB)
+    imshow(red_plane)
+    show()
+
+    #moving the resulting red-angle image in a picture in the storage
+    new_item="new.jpg"
+    new = cv.imwrite(new_item, red_mul)
+    Innewgray=cv.imread(new_item)
+    new_pic=Image.open(new_item)
+
+    #the standard deviation of red-angle plane
+    std_plane=np.std(red_mul.ravel())
+    print("The standard deviation is: " + str(std_plane))
+    print(str(nr))
+
+    #the binary image
+    _, binary_image = cv.threshold(Innewgray, nr+std_plane*5, 255, cv.THRESH_BINARY)
+
+    binary = cv.cvtColor(binary_image, cv.COLOR_BGR2RGB)
+
+    plt.imshow(binary)
+    show()
+    
+    #moving the result in a container for displaying in the interface
+    result_day="day.jpg"
+    new_day = cv.imwrite(result_day, binary)
+    new_pic=Image.open(result_day)
+    
+    col=1
+    row=3
+    new_pic=new_pic.resize((400, 400)) #making the same size as the original one
+    new_pic=ImageTk.PhotoImage(new_pic)
+    e2 =tk.Label(gui)
+    e2.place(x=1250, rely=0.35)
+    e2.image = new_pic 
+    e2['image']=new_pic 
+    if(col==3):
+        row=row+1
+        col=1    
+    else:      
+        col=col+1 
+
+
+
+
+
+#the function for the night image
+def night_img():
+    #finding the enhanced grayscale image of the night
+    #the gray image of the initial one
+    filename = container
+    img = cv.imread(filename,0)
+
+    #morpho-logical filtering
+    #kernel values
+    kernel_1 = np.ones((1,1),np.uint8)
+    kernel_2 = np.ones((5,5),np.uint8)
+
+    # Top Hat Transform
+    topHat = cv.morphologyEx(img, cv.MORPH_TOPHAT, kernel_1)
+    # Bottom Hat Transform
+    blackHat = cv.morphologyEx(img, cv.MORPH_BLACKHAT, kernel_2)
+
+    #the filter derived from the above morphological results
+    res = (img + topHat) - blackHat
+
+    #obtaining the enhanced grayscale image
+    resb = cv.cvtColor(res, cv.COLOR_BGR2RGB) 
+    plt.imshow(resb)
+    show()
+
+    #The computation of binary image (thresholds between 70-250)
+    _, binary_image = cv.threshold(resb, 190, 255, cv.THRESH_BINARY)
+    binary = cv.cvtColor(binary_image, cv.COLOR_BGR2RGB)
+    plt.imshow(binary)
+    show()
+    
+    #moving the result in a container for displaying in the interface
+    result_night="night_new.jpg"
+    new_night = cv.imwrite(result_night, binary)
+    new_pic=Image.open(result_night)
+    
+    col=1 
+    row=3 
+    new_pic=new_pic.resize((400, 400)) #making the same size as the original one
+    new_pic=ImageTk.PhotoImage(new_pic)
+    e3 =tk.Label(gui)
+    e3.place(x=1250, rely=0.35)
+    e3.image = new_pic 
+    e3['image']=new_pic 
+    if(col==3): 
+        row=row+1
+        col=1   
+    else:       
+        col=col+1 
+ 
+
+
+
+
+
+#buttons for day image and night image
+buttonDay = ctk.CTkButton(gui, text = 'DAY IMAGE', 
+                         font = ("Helvetica bold", 17),
+                         command = day_img,
+                         bg_color = '#66FFFF', 
+                         text_color = '#000',
+                         border_color = '#66FFFF')
+
+buttonNight = ctk.CTkButton(gui, text = 'NIGHT IMAGE', 
+                         font = ("Helvetica bold", 17),
+                         command = night_img,
+                         bg_color = '#66FFFF', 
+                         text_color = '#000',
+                         border_color = '#66FFFF')
+ 
+# Execute Tkinter
+backgImage.pack()
+Title.place(relx = 0.5, rely = 0.05, anchor = CENTER)
+ReadMeText.place(x=70, rely = 0.199)
+ButtonReadMe.place(x=600, rely=0.2)
+Text.place(x=340, rely = 0.3, anchor = CENTER)
+buttonDay.place(x=860, rely=0.5)
+buttonNight.place(x=860, rely=0.6)
+buttonImport.place(x=650, rely=0.29)
+gui.mainloop()
